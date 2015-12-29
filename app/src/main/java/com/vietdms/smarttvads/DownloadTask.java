@@ -22,6 +22,7 @@ public class DownloadTask extends AsyncTask<String, Integer, String> {
     private PowerManager.WakeLock mWakeLock;
     private String folder;
     private ProgressDialog mProgressDialog;
+
     private int noOfURLs;
     private int noUrlLoad;
 
@@ -45,7 +46,7 @@ public class DownloadTask extends AsyncTask<String, Integer, String> {
                 // expect HTTP 200 OK, so we don't mistakenly save error report
                 // instead of the file
                 if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                    return "Server returned HTTP " + connection.getResponseCode()
+                    return "Máy chủ trả về HTTP " + connection.getResponseCode()
                             + " " + connection.getResponseMessage();
                 }
                 // this will be useful to display download percentage
@@ -119,9 +120,7 @@ public class DownloadTask extends AsyncTask<String, Integer, String> {
         mWakeLock.release();
         mProgressDialog.dismiss();
         if (result != null)
-            Toast.makeText(context, "Download error: " + result, Toast.LENGTH_LONG).show();
-        else
-            Toast.makeText(context, "File downloaded", Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, context.getString(R.string.error) + result, Toast.LENGTH_LONG).show();
     }
 }
 

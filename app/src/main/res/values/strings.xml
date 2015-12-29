@@ -3,5 +3,7 @@
     <string name="title">Sau chiến tích vô địch Champions League và đoạt thêm Siêu cúp châu Âu, bộ đôi Messi – Iniesta có cùng 25 danh hiệu với Xavi nhưng hiện tại Xavi đã chuyển sang Qatar thi đấu. Với chức vô địch FIFA Club World Cup, Messi và Iniesta chính thức cùng dắt tay nhau vươn lên nằm giữ ngôi đầu.</string>
     <string name="footer">Đứng dưới Messi và Iniesta là bộ ba Dani Alves, Gerard Pique và Sergio Busquet cùng ra mắt ở mùa 2008/2009 dưới triều đại HLV Pep Guardiola. Họ giành 21 danh hiệu, riêng với Alves, nếu tính 5 danh hiệu đoạt được cùng Sevilla thì anh vươn lên sánh ngang Messi và Iniesta. Alves mới đây cân bằng kỷ lục cầu thủ Brazil giành nhiều danh hiệu nhất của huyền thoại Pele (26 danh hiệu)</string>
     <string name="setting">Cài đặt</string>
+    <string name="loadagain">Tải lại</string>
+    <string name="error">Tải dữ liệu quảng cáo bị lỗi, vui lòng kiểm tra đường truyền, lỗi :</string>
 
 </resources>
