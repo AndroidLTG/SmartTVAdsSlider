@@ -5,7 +5,9 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.sqlite.SQLiteDatabase;
+import android.graphics.PixelFormat;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.PowerManager;
@@ -19,6 +21,7 @@ import android.view.animation.AnimationUtils;
 import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.MediaController;
 import android.widget.VideoView;
 
 import java.util.ArrayList;
@@ -30,10 +33,7 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
     private ImageView image;
     private WebView web;
     private Button btnSetting;
-    private int check = 0;
-    private String LINK_IMAGE = "http://sdgaustralia.com/wp-content/uploads/2015/02/2013-honda-msx125-detailed-pictures-photo-gallery_7.jpg";
-    private String LINK_WEB = "http://m.24h.com.vn";
-    private String LINK_VIDEO = "http://www.androidbegin.com/tutorial/AndroidCommercial.3gp";
+    private int type = 0;
     private Handler handler;
     private Animation anim;
     private String FOLDER = "MyAdsData";
@@ -42,15 +42,16 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
     private final float VOLUME = 0;
     private final int OPENWIFI = 1;
     private final int positionWeb = 1000;
-    private ArrayList<Integer> arrInteger = new ArrayList<>();
     private Context context;
+    private MediaController mediaController;
+    private ArrayList<Ads> arrAds = new ArrayList<>();
 
-    @Override
+    @Override// download and save to sdcard
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         getId();
-        loadData();// download and save to sdcard
+        loadData();
         init();
     }
 
@@ -59,25 +60,19 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
         MyMethod.createFolder(FOLDER);
         MyMethod.createSchedule(database);
         if (MyMethod.isOnline(context)) {
-            MyMethod.download(context, mProgressDialog, FOLDER, LINK_IMAGE, LINK_VIDEO);
-            MyMethod.requestDevice(database, context, mProgressDialog, "tientest");
+
+            MyMethod.requestDevice(arrAds,database, context, mProgressDialog, "tientest",FOLDER);
         } else showLayout(Layouts.Setting);
         mProgressDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
             @Override
             public void onDismiss(DialogInterface dialog) {
-                displayData(check);
+
+                displayData(type);
             }
         });
-//        addData(); CHECK RANDOM, DONT DELETE
+//        addData(); type RANDOM, DONT DELETE
     }
 
-    private void addData() {
-        arrInteger.add(1);
-        arrInteger.add(2);
-        arrInteger.add(3);
-        arrInteger.add(4);
-        arrInteger.add(5);
-    }
 
     private void init() {
         final PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -98,15 +93,6 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
                 } else {
                     startActivityForResult(new Intent(Settings.ACTION_WIFI_SETTINGS), OPENWIFI);
                 }
-//                //CHECK RANDOM , DONT DELETE
-//                int chon = MyMethod.ramdomPerfect(arrInteger);
-//                if (chon != -1)
-//                    Toast.makeText(v.getContext(), chon + "", Toast.LENGTH_SHORT).show();
-//                else {
-//                    addData();
-//                    btnSetting.performClick();
-//                }
-//                //Do something
                 break;
             default:
                 break;
@@ -125,10 +111,10 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
         }
     }
 
+
     private enum Layouts {
         Video, Image, Webview, Setting
     }
-
 
     private void showLayout(Layouts layout) {
         switch (layout) {
@@ -140,15 +126,15 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
                 anim = AnimationUtils.loadAnimation(context,
                         R.anim.fade_in);
                 video.startAnimation(anim);
-
-                MyMethod.loadVideo(video, FOLDER, "File2.3gp", VOLUME);
+                //MyMethod.playVideo(mediaController,video,LINK_VIDEO,VOLUME);
+                MyMethod.loadVideo(video, FOLDER, "File1.3gp", VOLUME);
                 video.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                     @Override
                     public void onCompletion(MediaPlayer mp) {
-                        displayData(check);
+                        displayData(type);
                     }
                 });
-                check = 1;
+                type = 1;
                 break;
             case Image:
                 video.setVisibility(View.GONE);
@@ -158,14 +144,13 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
                 anim = AnimationUtils.loadAnimation(context,
                         R.anim.fade_in);
                 image.startAnimation(anim);
-
-                image.setImageResource(R.mipmap.ic_launcher);
-                check = 2;
+                MyMethod.loadImage(image, FOLDER, "File2.jpg");
+                type = 2;
                 handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         // Do something after 5s = 5000ms
-                        displayData(check);
+                        displayData(type);
 
                     }
                 }, 1000 * 10);
@@ -178,15 +163,14 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
                 anim = AnimationUtils.loadAnimation(context,
                         R.anim.fade_in);
                 web.startAnimation(anim);
-
-                MyMethod.loadWebview(web, positionWeb, LINK_WEB);
-                check = 0;
+                MyMethod.loadWebview(web, positionWeb, MyMethod.LINKWEB);
+                type = 0;
 
                 handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         // Do something after 5s = 5000ms
-                        displayData(check);
+                        displayData(type);
 
                     }
                 }, 1000 * 10);
@@ -203,8 +187,8 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
     }
 
 
-    private void displayData(int check) {
-        switch (check) {
+    private void displayData(int type) {
+        switch (type) {
             case 0:
                 anim = AnimationUtils.loadAnimation(context,
                         R.anim.fade_out);
@@ -233,6 +217,7 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
     }
 
     private void getId() {
+        mediaController = new MediaController(this);
         context = getApplicationContext();
         video = (VideoView) findViewById(R.id.vid);
         image = (ImageView) findViewById(R.id.img);
@@ -240,12 +225,10 @@ public class Main extends AppCompatActivity implements View.OnClickListener {
         btnSetting = (Button) findViewById(R.id.btnSetting);
         mProgressDialog = new ProgressDialog(Main.this);
         btnSetting.setOnClickListener(this);
-
     }
 
     @Override
     public void onBackPressed() {
-
     }
 
     @Override

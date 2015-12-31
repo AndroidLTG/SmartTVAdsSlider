@@ -113,12 +113,13 @@ public class DownloadTask extends AsyncTask<String, Integer, String> {
         mProgressDialog.setMax(100);
         mProgressDialog.setProgress(progress[0]);
         mProgressDialog.setMessage("Hoàn thành " + noUrlLoad + "/" + noOfURLs);
+        if(noUrlLoad==1) mProgressDialog.dismiss();
     }
 
     @Override
     protected void onPostExecute(String result) {
         mWakeLock.release();
-        mProgressDialog.dismiss();
+
         if (result != null)
             Toast.makeText(context, context.getString(R.string.error) + result, Toast.LENGTH_LONG).show();
     }

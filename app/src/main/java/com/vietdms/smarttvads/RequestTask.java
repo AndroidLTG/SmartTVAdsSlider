@@ -5,6 +5,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
+import android.os.PowerManager;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -19,75 +20,31 @@ import org.ksoap2.transport.HttpTransportSE;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 /**
  * Created by ${LTG} on ${10/12/1994}.
  */
 public class RequestTask extends AsyncTask<Void, Void, Boolean> {
     Exception error;
+    private Context context;
     private SQLiteDatabase database;
+    private PowerManager.WakeLock mWakeLock;
     private String deviceID;
     private String data;
     private ProgressDialog mProgressDialog;
-    private JSONArray arrAds;
+    private JSONArray arrJsonAds;
+    private DownloadTask downloadTask;
+    private ArrayList<Ads> arrAds;
 
-    public RequestTask(SQLiteDatabase database, String deviceID, ProgressDialog mProgressDialog) {
+    public RequestTask(ArrayList<Ads> arrAds,DownloadTask downloadTask,Context context, SQLiteDatabase database, String deviceID, ProgressDialog mProgressDialog) {
         this.database = database;
+        this.context = context;
         this.deviceID = deviceID;
         this.mProgressDialog = mProgressDialog;
+        this.downloadTask =downloadTask;
+        this.arrAds =arrAds;
     }
-
-    @Override
-    protected void onPostExecute(Boolean result) {
-        if (result) {
-            if (!data.equals("{\"Table\":[]}")) {
-                try {
-                    parseData();// get companycode
-
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-            } else {
-            }
-        } else {
-            if (error != null) {
-            }
-        }
-        mProgressDialog.dismiss();
-    }
-
-    private void parseData() throws JSONException {
-        database.delete(MyMethod.TABLESHOW, null, null);
-        JSONObject jsonObject = new JSONObject(data);
-        arrAds = jsonObject.getJSONArray("Table");
-        int nAds = arrAds.length();
-        for (int i = 0; i < nAds; i++) {
-            ContentValues cv = new ContentValues();
-            cv.put(MyMethod.ColumnSTT, Integer.parseInt(arrAds.getJSONObject(i).getString("LineID")));
-            cv.put(MyMethod.ColumnTYPE, Integer.parseInt(arrAds.getJSONObject(i).getString("Type")));
-            cv.put(MyMethod.ColumnURL, arrAds.getJSONObject(i).getString("Url"));
-            cv.put(MyMethod.ColumnBACKUPURL, arrAds.getJSONObject(i).getString("BackupUrl"));
-            cv.put(MyMethod.ColumnSTARTDATE, arrAds.getJSONObject(i).getString("StartTime"));
-            cv.put(MyMethod.ColumnDURATION, Float.parseFloat(arrAds.getJSONObject(i).getString("DurationTime")));
-            cv.put(MyMethod.ColumnVOLUME, Float.parseFloat(arrAds.getJSONObject(i).getString("Volume")));
-            database.insert(MyMethod.TABLESHOW, null, cv);
-        }
-    }
-
-    @Override
-    protected void onPreExecute() {
-        super.onPreExecute();
-        mProgressDialog.show();
-    }
-
-    @Override
-    protected void onProgressUpdate(Void... values) {
-        super.onProgressUpdate(values);
-        mProgressDialog.setIndeterminate(false);
-        mProgressDialog.setMax(100);
-        mProgressDialog.setMessage("Hoàn thành ");
-    }
-
 
     @Override
     protected Boolean doInBackground(Void... params) {
@@ -102,6 +59,68 @@ public class RequestTask extends AsyncTask<Void, Void, Boolean> {
         }
 
     }
+
+
+    @Override
+    protected void onPreExecute() {
+        super.onPreExecute();
+        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+                getClass().getName());
+        mWakeLock.acquire();
+    }
+
+
+    @Override
+    protected void onProgressUpdate(Void... values) {
+        super.onProgressUpdate(values);
+    }
+
+    @Override
+    protected void onPostExecute(Boolean result) {
+        mWakeLock.release();
+        if (result) {
+            if (!data.equals("{\"Table\":[]}")) {
+                try {
+                    parseData();// get companycode
+                    String[] link = new String[arrAds.size()];
+                    for (int i = 0; i < arrAds.size(); i++) {
+                        if(arrAds.get(i).getType().equals(MyMethod.TYPE_WEB)){
+                            MyMethod.LINKWEB = arrAds.get(i).getUrl();
+                        }
+                        else
+                        link[i] = arrAds.get(i).getUrl();
+                    }
+                    downloadTask.execute(link);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                MyMethod.showToast(context,"Thiết bị chưa được đăng ký");
+            }
+        }
+        //  mProgressDialog.dismiss();
+    }
+
+    private void parseData() throws JSONException {
+        arrAds.clear();
+        database.delete(MyMethod.TABLESHOW, null, null);
+        JSONObject jsonObject = new JSONObject(data);
+        arrJsonAds = jsonObject.getJSONArray("Table");
+        int nAds = arrJsonAds.length();
+        for (int i = 0; i < nAds; i++) {
+            Ads cv = new Ads();
+            cv.setSerial(Integer.parseInt(arrJsonAds.getJSONObject(i).getString("LineID")));
+            cv.setType(arrJsonAds.getJSONObject(i).getString("Add_No_"));
+            cv.setUrl(arrJsonAds.getJSONObject(i).getString("Url"));
+            cv.setBackupUrl(arrJsonAds.getJSONObject(i).getString("BackupUrl"));
+            cv.setStartDate(arrJsonAds.getJSONObject(i).getString("StartTime"));
+            cv.setDuration(Float.parseFloat(arrJsonAds.getJSONObject(i).getString("DurationTime")));
+            cv.setVolume(Float.parseFloat(arrJsonAds.getJSONObject(i).getString("Volume")));
+            arrAds.add(cv);
+        }
+    }
+
 
     private void requestDevice(String deviceID) {
         SoapObject request = new SoapObject(MyMethod.NAMESPACE, MyMethod.METHOD_NAME_REQUESTDEVICE);

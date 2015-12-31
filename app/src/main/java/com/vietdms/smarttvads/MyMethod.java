@@ -5,9 +5,13 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.PixelFormat;
 import android.media.MediaPlayer;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.os.Environment;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -15,6 +19,9 @@ import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.ImageView;
+import android.widget.MediaController;
+import android.widget.Toast;
 import android.widget.VideoView;
 
 import java.io.File;
@@ -31,7 +38,6 @@ public class MyMethod {
     public static final String METHOD_NAME_REQUESTDEVICE = "AddTV_RequestAds";
     public static final String URL = "http://indico.vn:8101/mywebservice.asmx?WSDL";
     public static final String SOAP_ACTION_REQUESTDEVICE = "http://tempuri.org/AddTV_RequestAds";
-
     //SQLITE
     public static final String DATABASE_NAME = "ltg.db";
     public static final String TABLESHOW = "Schedule";
@@ -43,6 +49,11 @@ public class MyMethod {
     public static final String ColumnDURATION = "DURATION";
     public static final String ColumnSTARTDATE = "STARTDATE";
     public static final String ColumnVOLUME = "VOLUME";
+    public static final String TYPE_VIDEO = "VIDEO";
+    public static final String TYPE_IMAGE = "PC";
+    public static final String TYPE_WEB = "WEB";
+    public static final String TYPE_ADS = "QC";
+    public static String LINKWEB="";
 
 
     public static boolean isTableExists(SQLiteDatabase database, String tableName) {
@@ -57,6 +68,7 @@ public class MyMethod {
         }
         return false;
     }
+
     //check if field exist
     public static boolean isFieldExist(SQLiteDatabase database, String tablename, String fildName, String fildValue) {
         String Query = "SELECT * FROM " + tablename + " WHERE " + fildName + " = '" + fildValue + "'";
@@ -68,6 +80,33 @@ public class MyMethod {
         cursor.close();
         return true;
     }
+
+    public static void loadDataFromSqlite(ArrayList<Ads> arrAds, SQLiteDatabase database) {
+        if (MyMethod.isTableExists(database, MyMethod.TABLESHOW)) {
+            if (database != null) {
+                Cursor cursor = database.query(MyMethod.TABLESHOW, null, null, null, null, null, null);
+                cursor.moveToFirst();
+                while (!cursor.isAfterLast()) {
+                    Ads ads = new Ads();
+                    ads.setSerial(cursor.getInt(cursor.getColumnIndex(MyMethod.ColumnSTT)));
+                    ads.setType(cursor.getString(cursor.getColumnIndex(MyMethod.ColumnTYPE)));
+                    ads.setUrl(cursor.getString(cursor.getColumnIndex(MyMethod.ColumnURL)));
+                    ads.setBackupUrl(cursor.getString(cursor.getColumnIndex(MyMethod.ColumnBACKUPURL)));
+                    ads.setExtension(cursor.getString(cursor.getColumnIndex(MyMethod.ColumnURL)));
+                    ads.setDuration(cursor.getFloat(cursor.getColumnIndex(MyMethod.ColumnDURATION)));
+                    if (ads.getType().contains(MyMethod.TYPE_VIDEO))
+                        ads.setVolume(cursor.getFloat(cursor.getColumnIndex(MyMethod.ColumnVOLUME)));
+                    else ads.setVolume(0f);
+                    ads.setStartDate(cursor.getString(cursor.getColumnIndex(MyMethod.ColumnSTARTDATE)));
+                    arrAds.add(ads);
+                    cursor.moveToNext();
+                }
+                Log.w("SIZE LOAD : ", arrAds.size() + "");
+                cursor.close();
+            }
+        }
+    }
+
     //create table save Schedule
     public static SQLiteDatabase createSchedule(SQLiteDatabase database) {
         try {
@@ -80,7 +119,7 @@ public class MyMethod {
                 String sql = "create table " + MyMethod.TABLESHOW + " ("
                         + MyMethod.ColumnRowID + " integer primary key autoincrement,"
                         + MyMethod.ColumnSTT + " integer,"
-                        + MyMethod.ColumnTYPE + " integer, "
+                        + MyMethod.ColumnTYPE + " text, "
                         + MyMethod.ColumnURL + " text, "
                         + MyMethod.ColumnBACKUPURL + " text, "
                         + MyMethod.ColumnSTARTDATE + " text, "
@@ -124,27 +163,23 @@ public class MyMethod {
         mProgressDialog.setIndeterminate(true);
         mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         mProgressDialog.setCancelable(true);
-// execute this when the downloader must be fired
         final DownloadTask downloadTask = new DownloadTask(context, folder, mProgressDialog);
         downloadTask.execute(link);
-
         mProgressDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
             @Override
             public void onCancel(DialogInterface dialog) {
                 downloadTask.cancel(true);
             }
         });
-
-
     }
 
-    public static void requestDevice(SQLiteDatabase database,Context context, final ProgressDialog mProgressDialog, final String deviceId) {
-        mProgressDialog.setMessage("Đang tải dữ liệu");
+    public static void requestDevice(ArrayList<Ads> arrAds,SQLiteDatabase database, Context context, final ProgressDialog mProgressDialog, final String deviceId,String folder) {
+        mProgressDialog.setMessage("Đang quét thiết bị");
         mProgressDialog.setIndeterminate(true);
         mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         mProgressDialog.setCancelable(true);
-// execute this when the downloader must be fired
-        final RequestTask requestTask = new RequestTask(database, deviceId, mProgressDialog);
+        final DownloadTask downloadTask = new DownloadTask(context, folder, mProgressDialog);
+        final RequestTask requestTask = new RequestTask(arrAds,downloadTask,context,database, deviceId, mProgressDialog);
         requestTask.execute();
 
         mProgressDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
@@ -153,6 +188,8 @@ public class MyMethod {
                 requestTask.cancel(true);
             }
         });
+
+
 
 
     }
@@ -187,6 +224,16 @@ public class MyMethod {
 
     }
 
+    public static void loadImage(ImageView imageView, String folderName, String fileName) {
+        try {
+            String uriPath = Environment.getExternalStorageDirectory() + "/" + folderName + "/" + fileName;
+            Bitmap bmp = BitmapFactory.decodeFile(uriPath);
+            imageView.setImageBitmap(bmp);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void loadVideo(final VideoView video, String folderName, String fileName, final float VOLUME) {
         // Create a progressbar
         try {
@@ -205,18 +252,39 @@ public class MyMethod {
             }
         });
 
+
+    }
+
+    public static void playVideo(MediaController mediaController, final VideoView video, String url, final float VOLUME) {
+        Uri urlVideo = Uri.parse(url);
+        mediaController.setAnchorView(video);
+        video.setMediaController(mediaController);
+        video.setVideoURI(urlVideo);
+        video.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+            @Override
+            public boolean onError(MediaPlayer mp, int what, int extra) {
+                // TODO Auto-generated method stub
+                return false;
+            }
+        });
+        video.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+
+            public void onPrepared(MediaPlayer arg0) {
+                arg0.setVolume(VOLUME / 100, VOLUME / 100);
+                video.start();
+            }
+        });
     }
 
     public static void loadWebview(final WebView web, final int positionWeb, String LINK_WEB) {
         WebSettings settings = web.getSettings();
-        settings.setJavaScriptEnabled(false);
+        settings.setJavaScriptEnabled(true);
+        web.setInitialScale(1);
         web.setScrollBarStyle(WebView.SCROLLBARS_OUTSIDE_OVERLAY);
-
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 view.loadUrl(url);
-
                 return true;
             }
 
@@ -226,12 +294,9 @@ public class MyMethod {
                 web.scrollTo(0, positionWeb);
             }
         });
-        web.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                return true;
-            }
-        });
         web.loadUrl(LINK_WEB);
+    }
+    public static void showToast(Context context,String t ) {
+        Toast.makeText(context,t,Toast.LENGTH_SHORT).show();
     }
 }
